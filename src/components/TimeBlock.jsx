@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
 import { formatTimeRange } from '../utils/format';
 
-const TimeBlock = ({ start, end, subject, completed, onToggle, readOnly, skipReason, onUpdateReason }) => {
+const TimeBlock = ({ start, end, subject, overriddenSubject, onUpdateSubject, completed, onToggle, readOnly, skipReason, onUpdateReason, isToday }) => {
     const [isEditingReason, setIsEditingReason] = useState(false);
     const [reasonText, setReasonText] = useState(skipReason || '');
+    const [isEditingSubject, setIsEditingSubject] = useState(false);
+    const [subjectText, setSubjectText] = useState(overriddenSubject || subject);
+
+    // Sync with props when they change
+    React.useEffect(() => {
+        setSubjectText(overriddenSubject || subject);
+    }, [overriddenSubject, subject]);
 
     const handleReasonClick = (e) => {
         e.stopPropagation();
@@ -21,6 +28,25 @@ const TimeBlock = ({ start, end, subject, completed, onToggle, readOnly, skipRea
         }
     };
 
+    const handleSubjectClick = (e) => {
+        if (!isToday || readOnly) return;
+        e.stopPropagation();
+        setIsEditingSubject(true);
+    };
+
+    const handleSubjectChange = (e) => {
+        setSubjectText(e.target.value);
+    };
+
+    const handleSubjectBlur = () => {
+        setIsEditingSubject(false);
+        if (subjectText.trim() && subjectText !== (overriddenSubject || subject)) {
+            onUpdateSubject(subjectText);
+        } else if (!subjectText.trim()) {
+            setSubjectText(overriddenSubject || subject); // Revert if empty
+        }
+    };
+
     const handleInputClick = (e) => {
         e.stopPropagation();
     };
@@ -31,14 +57,54 @@ const TimeBlock = ({ start, end, subject, completed, onToggle, readOnly, skipRea
         }
     };
 
+    const displaySubject = overriddenSubject || subject;
+
     return (
         <div className={`time-block ${completed ? 'completed' : 'todo'}`}>
             <div className="time-block-main">
                 <div className="block-time">
                     {formatTimeRange(start, end)}
                 </div>
-                <div className="block-subject">
-                    {subject}
+                <div className="block-subject" onClick={handleSubjectClick} style={{ cursor: (isToday && !readOnly) ? 'text' : 'default' }}>
+                    {isEditingSubject ? (
+                        <input
+                            type="text"
+                            value={subjectText}
+                            onChange={handleSubjectChange}
+                            onBlur={handleSubjectBlur}
+                            onClick={handleInputClick}
+                            onKeyDown={handleKeyDown}
+                            autoFocus
+                            className="time-block-subject-input"
+                            style={{
+                                width: '100%',
+                                padding: '0.2rem 0.4rem',
+                                fontSize: 'inherit',
+                                fontWeight: 'inherit',
+                                border: '1px solid var(--primary)',
+                                borderRadius: '4px',
+                                background: 'var(--card-bg)',
+                                color: 'var(--text)'
+                            }}
+                        />
+                    ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {displaySubject}
+                            {overriddenSubject && (
+                                <span style={{
+                                    fontSize: '0.65rem',
+                                    background: 'var(--primary)',
+                                    color: 'white',
+                                    padding: '1px 4px',
+                                    borderRadius: '3px',
+                                    fontWeight: 'bold',
+                                    textTransform: 'uppercase'
+                                }}>
+                                    Edited
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
                 {!readOnly && (
                     <div

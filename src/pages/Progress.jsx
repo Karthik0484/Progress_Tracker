@@ -28,7 +28,7 @@ const Progress = ({ data, updateWeakAreas, getDayStats, todayKey, onNavigateToTo
                     const e = block.end.split(':').map(Number);
                     const duration = (e[0] + e[1] / 60) - (s[0] + s[1] / 60);
 
-                    let subject = block.subject;
+                    let subject = dayData.overriddenSubjects?.[blockIndex] || block.subject;
                     if (subject.includes('(')) subject = subject.split('(')[0].trim();
                     if (subject.includes(':')) subject = subject.split(':')[0].trim();
 
@@ -116,6 +116,7 @@ const Progress = ({ data, updateWeakAreas, getDayStats, todayKey, onNavigateToTo
                         schedule.map((block, idx) => {
                             const isDone = dayData.completedBlocks.includes(idx);
                             const skipReason = dayData.skippedReasons?.[idx];
+                            const displaySubject = dayData.overriddenSubjects?.[idx] || block.subject;
 
                             return (
                                 <div
@@ -135,8 +136,11 @@ const Progress = ({ data, updateWeakAreas, getDayStats, todayKey, onNavigateToTo
                                         <span style={{ width: '130px', fontSize: '0.9rem', color: 'var(--secondary)' }}>
                                             {formatTimeRange(block.start, block.end)}
                                         </span>
-                                        <span style={{ fontWeight: isDone ? 'normal' : '500', textDecoration: isDone ? 'line-through' : 'none' }}>
-                                            {block.subject}
+                                        <span style={{ fontWeight: isDone ? 'normal' : '500', textDecoration: isDone ? 'line-through' : 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            {displaySubject}
+                                            {dayData.overriddenSubjects?.[idx] && (
+                                                <span style={{ fontSize: '0.6rem', color: 'var(--primary)', opacity: 0.8 }}> (Edited)</span>
+                                            )}
                                         </span>
                                     </div>
                                     {skipReason && (

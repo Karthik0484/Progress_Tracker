@@ -3,7 +3,7 @@ import TimeBlock from '../components/TimeBlock';
 import { getDayName } from '../utils/storage';
 import { TIMETABLE } from '../data/timetable';
 
-const Today = ({ todayKey, dailyData, toggleBlock, updateNotes, toggleLeetCode, updateSkipReason }) => {
+const Today = ({ todayKey, dailyData, toggleBlock, updateNotes, toggleLeetCode, updateSkipReason, updateOverriddenSubject }) => {
     const dayName = getDayName(todayKey);
     const schedule = TIMETABLE[dayName] || [];
 
@@ -70,10 +70,13 @@ const Today = ({ todayKey, dailyData, toggleBlock, updateNotes, toggleLeetCode, 
                 <TimeBlock
                     key={index}
                     {...block}
+                    overriddenSubject={dailyData.overriddenSubjects?.[index]}
+                    onUpdateSubject={(newSub) => updateOverriddenSubject(todayKey, index, newSub)}
                     completed={dailyData.completedBlocks.includes(index)}
                     onToggle={() => toggleBlock(todayKey, index)}
                     skipReason={dailyData.skippedReasons?.[index]}
                     onUpdateReason={(reason) => updateSkipReason(todayKey, index, reason)}
+                    isToday={true}
                 />
             ))}
 

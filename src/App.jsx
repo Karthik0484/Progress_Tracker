@@ -18,7 +18,8 @@ function App() {
     updateWeakAreas,
     saveReview,
     getDayStats,
-    updateSkipReason
+    updateSkipReason,
+    updateOverriddenSubject
   } = useTracker();
 
   const [currentPage, setCurrentPage] = useState('today');
@@ -43,11 +44,12 @@ function App() {
         return (
           <Today
             todayKey={todayKey}
-            dailyData={data.dailyProgress[todayKey] || { completedBlocks: [], notes: '', leetcode: false }}
+            dailyData={data.dailyProgress[todayKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {} }}
             toggleBlock={toggleBlock}
             updateNotes={updateNotes}
             toggleLeetCode={toggleLeetCode}
             updateSkipReason={updateSkipReason}
+            updateOverriddenSubject={updateOverriddenSubject}
           />
         );
       case 'timetable':

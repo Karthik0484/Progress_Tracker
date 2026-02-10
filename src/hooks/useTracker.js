@@ -29,7 +29,7 @@ export const useTracker = () => {
                 ...prev,
                 dailyProgress: {
                     ...prev.dailyProgress,
-                    [dateKey]: { completedBlocks: [], notes: '', leetcode: false }
+                    [dateKey]: { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {} }
                 }
             }));
         }
@@ -41,7 +41,7 @@ export const useTracker = () => {
         if (dateKey !== getTodayKey()) return; // Strict guard
 
         setData(prev => {
-            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false };
+            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {} };
             const isCompleted = dayData.completedBlocks.includes(blockIndex);
 
             let newCompleted;
@@ -65,7 +65,7 @@ export const useTracker = () => {
         if (dateKey !== getTodayKey()) return;
 
         setData(prev => {
-            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false };
+            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {} };
             return {
                 ...prev,
                 dailyProgress: {
@@ -80,7 +80,7 @@ export const useTracker = () => {
         if (dateKey !== getTodayKey()) return;
 
         setData(prev => {
-            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false };
+            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {} };
             return {
                 ...prev,
                 dailyProgress: {
@@ -95,7 +95,7 @@ export const useTracker = () => {
         if (dateKey !== getTodayKey()) return;
 
         setData(prev => {
-            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false };
+            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {} };
             const currentReasons = dayData.skippedReasons || {}; // ensure map exists
 
             // If reason is empty, remove it to keep clean, or just store ''
@@ -111,6 +111,30 @@ export const useTracker = () => {
                 dailyProgress: {
                     ...prev.dailyProgress,
                     [dateKey]: { ...dayData, skippedReasons: newReasons }
+                }
+            };
+        });
+    };
+
+    const updateOverriddenSubject = (dateKey, blockIndex, newSubject) => {
+        if (dateKey !== getTodayKey()) return;
+        if (!newSubject.trim()) return; // Requirement: Do NOT allow empty subject names
+
+        setData(prev => {
+            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {} };
+            const currentOverrides = dayData.overriddenSubjects || {};
+
+            return {
+                ...prev,
+                dailyProgress: {
+                    ...prev.dailyProgress,
+                    [dateKey]: {
+                        ...dayData,
+                        overriddenSubjects: {
+                            ...currentOverrides,
+                            [blockIndex]: newSubject
+                        }
+                    }
                 }
             };
         });
@@ -136,7 +160,7 @@ export const useTracker = () => {
     const getDayStats = (dateKey) => {
         const dayName = getDayName(dateKey); // e.g., "Monday"
         const schedule = TIMETABLE[dayName] || [];
-        const dayData = data.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false };
+        const dayData = data.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {} };
 
         let totalHours = 0;
         let completedHours = 0;
@@ -178,6 +202,7 @@ export const useTracker = () => {
         updateWeakAreas,
         saveReview,
         getDayStats,
-        updateSkipReason
+        updateSkipReason,
+        updateOverriddenSubject
     };
 };
