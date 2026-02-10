@@ -45,17 +45,21 @@ export const useTracker = () => {
             const isCompleted = dayData.completedBlocks.includes(blockIndex);
 
             let newCompleted;
+            let newReasons = { ...(dayData.skippedReasons || {}) };
+
             if (isCompleted) {
                 newCompleted = dayData.completedBlocks.filter(i => i !== blockIndex);
             } else {
                 newCompleted = [...dayData.completedBlocks, blockIndex].sort((a, b) => a - b); // keep sorted
+                // Rule: If marking as completed, remove skip reason
+                delete newReasons[blockIndex];
             }
 
             return {
                 ...prev,
                 dailyProgress: {
                     ...prev.dailyProgress,
-                    [dateKey]: { ...dayData, completedBlocks: newCompleted }
+                    [dateKey]: { ...dayData, completedBlocks: newCompleted, skippedReasons: newReasons }
                 }
             };
         });
@@ -100,17 +104,21 @@ export const useTracker = () => {
 
             // If reason is empty, remove it to keep clean, or just store ''
             const newReasons = { ...currentReasons };
+            let newCompleted = [...(dayData.completedBlocks || [])];
+
             if (reason.trim() === '') {
                 delete newReasons[blockIndex];
             } else {
                 newReasons[blockIndex] = reason;
+                // Rule: If adding a skip reason, remove completion mark
+                newCompleted = newCompleted.filter(i => i !== blockIndex);
             }
 
             return {
                 ...prev,
                 dailyProgress: {
                     ...prev.dailyProgress,
-                    [dateKey]: { ...dayData, skippedReasons: newReasons }
+                    [dateKey]: { ...dayData, skippedReasons: newReasons, completedBlocks: newCompleted }
                 }
             };
         });

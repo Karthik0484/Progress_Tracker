@@ -10,7 +10,8 @@ const TimeBlock = ({ start, end, subject, overriddenSubject, onUpdateSubject, co
     // Sync with props when they change
     React.useEffect(() => {
         setSubjectText(overriddenSubject || subject);
-    }, [overriddenSubject, subject]);
+        setReasonText(skipReason || '');
+    }, [overriddenSubject, subject, skipReason]);
 
     const handleReasonClick = (e) => {
         e.stopPropagation();
@@ -108,12 +109,16 @@ const TimeBlock = ({ start, end, subject, overriddenSubject, onUpdateSubject, co
                 </div>
                 {!readOnly && (
                     <div
-                        className="checkbox-custom"
+                        className={`checkbox-custom ${skipReason ? 'disabled' : ''}`}
                         onClick={(e) => {
                             e.stopPropagation();
-                            onToggle();
+                            if (!skipReason) onToggle();
                         }}
-                        style={{ cursor: 'pointer' }}
+                        style={{
+                            cursor: skipReason ? 'not-allowed' : 'pointer',
+                            opacity: skipReason ? 0.3 : 1
+                        }}
+                        title={skipReason ? "Remove skip reason to mark as completed" : ""}
                     >
                         {completed && <span>✓</span>}
                     </div>
@@ -156,14 +161,22 @@ const TimeBlock = ({ start, end, subject, overriddenSubject, onUpdateSubject, co
                                         cursor: 'text',
                                         display: 'flex',
                                         alignItems: 'center',
+                                        justifyContent: 'space-between',
                                         gap: '0.5rem'
                                     }}
                                 >
-                                    {skipReason ? (
-                                        <span>⚠ {skipReason}</span>
-                                    ) : (
-                                        <span className="time-block-reason-placeholder" style={{ fontSize: '0.85rem', textDecoration: 'underline', opacity: 0.7 }}>
-                                            Select "Why skipped?"
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        {skipReason ? (
+                                            <span>⚠ {skipReason}</span>
+                                        ) : (
+                                            <span className="time-block-reason-placeholder" style={{ fontSize: '0.85rem', textDecoration: 'underline', opacity: 0.7 }}>
+                                                Select "Why skipped?"
+                                            </span>
+                                        )}
+                                    </div>
+                                    {skipReason && (
+                                        <span style={{ fontSize: '0.75rem', opacity: 0.6, fontStyle: 'italic' }}>
+                                            (Uncheck completion disabled)
                                         </span>
                                     )}
                                 </div>
@@ -176,6 +189,11 @@ const TimeBlock = ({ start, end, subject, overriddenSubject, onUpdateSubject, co
                             ⚠ {skipReason}
                         </div>
                     )}
+                </div>
+            )}
+            {skipReason && !readOnly && !completed && (
+                <div style={{ paddingLeft: '0.5rem', fontSize: '0.7rem', color: 'var(--secondary)', marginTop: '2px', opacity: 0.7 }}>
+                    Remove reason to enable completion check
                 </div>
             )}
         </div>
