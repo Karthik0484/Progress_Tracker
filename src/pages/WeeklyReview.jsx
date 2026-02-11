@@ -1,9 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import Modal from '../components/Modal';
 import { formatTimeRange } from '../utils/format';
+import { prepareWeeklyData, exportToJSON, exportToText } from '../utils/exportUtils';
 
 const WeeklyReview = ({ data, getDayStats, todayKey }) => {
     const [selectedDate, setSelectedDate] = useState(null);
+    const [exporting, setExporting] = useState(false);
+    const [showExportOptions, setShowExportOptions] = useState(false);
 
     // Filter available years from data
     const availableYears = useMemo(() => {
@@ -165,8 +168,40 @@ const WeeklyReview = ({ data, getDayStats, todayKey }) => {
         );
     };
 
+    const handleExport = (format) => {
+        setExporting(true);
+        const exportData = prepareWeeklyData(data, getDayStats, todayKey, streaks);
+
+        if (format === 'json') {
+            exportToJSON(exportData);
+        } else {
+            exportToText(exportData);
+        }
+
+        setShowExportOptions(false);
+        setTimeout(() => setExporting(false), 2000);
+    };
+
     return (
         <div className="review-container">
+            <div className="export-section">
+                <div className="export-dropdown">
+                    <button
+                        className={`btn-export ${exporting ? 'success' : ''}`}
+                        onClick={() => setShowExportOptions(!showExportOptions)}
+                    >
+                        <span>{exporting ? '✓ Data Exported' : '📥 Export This Week'}</span>
+                    </button>
+
+                    {showExportOptions && (
+                        <div className="export-menu">
+                            <button onClick={() => handleExport('json')}>Download JSON (Machine Readable)</button>
+                            <button onClick={() => handleExport('text')}>Download TXT (Summary Report)</button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
             {/* Streak Statistics */}
             <div className="stats-grid">
                 <div className="stat-card">
@@ -452,6 +487,85 @@ const WeeklyReview = ({ data, getDayStats, todayKey }) => {
                         align-items: flex-start;
                         gap: 15px;
                     }
+                }
+
+                .export-section {
+                    display: flex;
+                    justify-content: flex-end;
+                    margin-bottom: 1rem;
+                }
+
+                .export-dropdown {
+                    position: relative;
+                }
+
+                .btn-export {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 0.6rem 1.2rem;
+                    background: var(--card-bg);
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                    color: var(--text);
+                    font-size: 0.9rem;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                }
+
+                .btn-export:hover {
+                    border-color: var(--primary);
+                    background: var(--bg);
+                }
+
+                .btn-export.success {
+                    background: var(--success);
+                    color: white;
+                    border-color: var(--success);
+                }
+
+                .export-menu {
+                    position: absolute;
+                    top: 110%;
+                    right: 0;
+                    background: var(--card-bg);
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+                    z-index: 100;
+                    width: 220px;
+                    overflow: hidden;
+                    animation: slideDown 0.2s ease-out;
+                }
+
+                @keyframes slideDown {
+                    from { transform: translateY(-10px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+
+                .export-menu button {
+                    display: block;
+                    width: 100%;
+                    padding: 0.8rem 1rem;
+                    text-align: left;
+                    background: none;
+                    border: none;
+                    border-bottom: 1px solid var(--border);
+                    color: var(--text);
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                }
+
+                .export-menu button:last-child {
+                    border-bottom: none;
+                }
+
+                .export-menu button:hover {
+                    background: var(--bg);
+                    color: var(--primary);
                 }
             `}</style>
         </div>
