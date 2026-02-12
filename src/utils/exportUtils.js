@@ -1,3 +1,5 @@
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { formatTimeRange } from './format';
 
 /**
@@ -56,7 +58,7 @@ export const prepareWeeklyData = (data, getDayStats, referenceDate, streaks) => 
                 const blockEntry = {
                     time: formatTimeRange(block.start, block.end),
                     subject: subject,
-                    status: isCompleted ? 'completed' : (skipReason ? 'skipped' : 'pending'),
+                    status: isCompleted ? 'Completed' : (skipReason ? 'Skipped' : 'Pending'),
                 };
 
                 if (skipReason) {
@@ -86,69 +88,142 @@ export const prepareWeeklyData = (data, getDayStats, referenceDate, streaks) => 
         streaks: {
             currentStreak: streaks.current,
             bestStreak: streaks.best,
-            minThreshold: "70%"
+            minThreshold: "Day counts if >= 70% completed"
         },
-        dailyBreakdown: days
+        dailyBreakdown: days,
+        dateRange: {
+            start: days[0].date,
+            end: days[6].date
+        }
     };
 };
 
-export const exportToJSON = (exportData) => {
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `placement-prep-week-${exportData.weekIdentifier}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-};
+export const exportToPDF = (exportData) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
 
-export const exportToText = (exportData) => {
-    let text = `PLACEMENT PREP TRACKER - WEEKLY REPORT\n`;
-    text += `Week: ${exportData.weekIdentifier}\n`;
-    text += `==========================================\n\n`;
+    // Helper for beautiful formatting
+    const primaryColor = [31, 41, 55]; // Dark blue-grey
 
-    text += `SUMMARY\n`;
-    text += `------------------------------------------\n`;
-    text += `Total Planned Hours:   ${exportData.summary.totalPlannedHours}h\n`;
-    text += `Total Completed Hours: ${exportData.summary.totalCompletedHours}h\n`;
-    text += `Completion Rate:       ${exportData.summary.completionPercentage}%\n\n`;
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.setFont("helvetica", "bold");
+    doc.text("Placement Preparation – Weekly Report", pageWidth / 2, 20, { align: "center" });
 
-    text += `STREAK INFO\n`;
-    text += `------------------------------------------\n`;
-    text += `Current Streak: ${exportData.streaks.currentStreak} days\n`;
-    text += `Best Streak:    ${exportData.streaks.bestStreak} days\n`;
-    text += `Min Threshold:  ${exportData.streaks.minThreshold}\n\n`;
+    // Header info
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Week: ${exportData.weekIdentifier}`, 14, 30);
+    doc.text(`Date Range: ${exportData.dateRange.start} to ${exportData.dateRange.end}`, 14, 35);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 40);
 
-    text += `DAILY BREAKDOWN\n`;
-    text += `------------------------------------------\n`;
+    // Summary Section
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("Summary Metrics", 14, 52);
 
-    exportData.dailyBreakdown.forEach(day => {
-        text += `\n[ ${day.date} - ${day.dayName} ]\n`;
-        text += `Progress: ${day.completionPercentage}% (${day.completedHours}h / ${day.plannedHours}h)\n`;
+    const summaryData = [
+        ["Total Planned Hours", `${exportData.summary.totalPlannedHours}h`],
+        ["Total Completed Hours", `${exportData.summary.totalCompletedHours}h`],
+        ["Completion Rate", `${exportData.summary.completionPercentage}%`],
+        ["Current Streak", `${exportData.streaks.currentStreak} days`],
+        ["Best Streak", `${exportData.streaks.bestStreak} days`],
+        ["Min Completion Rule", exportData.streaks.minThreshold]
+    ];
 
-        if (day.blocks.length === 0) {
-            text += `  - Rest Day\n`;
-        } else {
-            day.blocks.forEach(block => {
-                const statusIcon = block.status === 'completed' ? '[✓]' : (block.status === 'skipped' ? '[⚠]' : '[ ]');
-                text += `  ${statusIcon} ${block.time}: ${block.subject}`;
-                if (block.skipReason) {
-                    text += ` (Skip Reason: ${block.skipReason})`;
-                }
-                text += `\n`;
-            });
-        }
+    autoTable(doc, {
+        startY: 55,
+        body: summaryData,
+        theme: 'plain',
+        styles: { fontSize: 10, cellPadding: 2 },
+        columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 50 },
+            1: { cellWidth: 'auto' }
+        },
+        margin: { left: 14 }
     });
 
-    const blob = new Blob([text], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `placement-prep-week-${exportData.weekIdentifier}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    let currentY = doc.lastAutoTable.finalY + 15;
+
+    // Daily Breakdown
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Daily Progress Breakdown", 14, currentY);
+    currentY += 8;
+
+    exportData.dailyBreakdown.forEach((day, index) => {
+        // Check for page break
+        if (currentY > 230) {
+            doc.addPage();
+            currentY = 20;
+        }
+
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text(`${day.dayName} (${day.date})`, 14, currentY);
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Completion: ${day.completionPercentage}% | ${day.completedHours}h completed of ${day.plannedHours}h planned`, 14, currentY + 5);
+
+        const tableBody = day.blocks.length > 0
+            ? day.blocks.map(block => [
+                block.time,
+                block.subject,
+                block.status,
+                block.skipReason || "-"
+            ])
+            : [["-", "Rest Day / No Scheduled Blocks", "-", "-"]];
+
+        autoTable(doc, {
+            startY: currentY + 8,
+            head: [['Time', 'Subject', 'Status', 'Skip Reason']],
+            body: tableBody,
+            theme: 'grid',
+            headStyles: {
+                fillColor: [240, 240, 240],
+                textColor: [0, 0, 0],
+                fontStyle: 'bold',
+                fontSize: 8,
+                lineWidth: 0.1
+            },
+            styles: { fontSize: 8, cellPadding: 3 },
+            columnStyles: {
+                0: { cellWidth: 35 },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 25 },
+                3: { cellWidth: 40 }
+            },
+            margin: { left: 14, right: 14 },
+            didParseCell: function (data) {
+                if (data.section === 'body' && data.column.index === 2) {
+                    if (data.cell.raw === 'Completed') {
+                        data.cell.styles.textColor = [0, 128, 0]; // Success green
+                    } else if (data.cell.raw === 'Skipped') {
+                        data.cell.styles.textColor = [220, 0, 0]; // Danger red
+                    }
+                }
+            }
+        });
+
+        currentY = doc.lastAutoTable.finalY + 12;
+    });
+
+    // Add Footer with page numbers
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Page ${i} of ${pageCount}`, pageWidth - 25, doc.internal.pageSize.getHeight() - 10);
+    }
+
+    doc.save(`placement-prep-week-${exportData.weekIdentifier}.pdf`);
 };
+
+

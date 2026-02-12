@@ -1,12 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import Modal from '../components/Modal';
 import { formatTimeRange } from '../utils/format';
-import { prepareWeeklyData, exportToJSON, exportToText } from '../utils/exportUtils';
+import { prepareWeeklyData, exportToPDF } from '../utils/exportUtils';
 
 const WeeklyReview = ({ data, getDayStats, todayKey }) => {
     const [selectedDate, setSelectedDate] = useState(null);
     const [exporting, setExporting] = useState(false);
-    const [showExportOptions, setShowExportOptions] = useState(false);
 
     // Filter available years from data
     const availableYears = useMemo(() => {
@@ -168,38 +167,33 @@ const WeeklyReview = ({ data, getDayStats, todayKey }) => {
         );
     };
 
-    const handleExport = (format) => {
+    const handleExport = () => {
         setExporting(true);
-        const exportData = prepareWeeklyData(data, getDayStats, todayKey, streaks);
+        const refDate = selectedDate || todayKey;
+        const exportData = prepareWeeklyData(data, getDayStats, refDate, streaks);
 
-        if (format === 'json') {
-            exportToJSON(exportData);
-        } else {
-            exportToText(exportData);
-        }
+        exportToPDF(exportData);
 
-        setShowExportOptions(false);
-        setTimeout(() => setExporting(false), 2000);
+        setTimeout(() => setExporting(false), 3000);
     };
+
+    const isExportDisabled = useMemo(() => {
+        const refDate = selectedDate || todayKey;
+        const weekData = prepareWeeklyData(data, getDayStats, refDate, streaks);
+        return weekData.summary.totalPlannedHours === 0;
+    }, [data, getDayStats, todayKey, streaks, selectedDate]);
 
     return (
         <div className="review-container">
             <div className="export-section">
-                <div className="export-dropdown">
-                    <button
-                        className={`btn-export ${exporting ? 'success' : ''}`}
-                        onClick={() => setShowExportOptions(!showExportOptions)}
-                    >
-                        <span>{exporting ? '✓ Data Exported' : '📥 Export This Week'}</span>
-                    </button>
-
-                    {showExportOptions && (
-                        <div className="export-menu">
-                            <button onClick={() => handleExport('json')}>Download JSON (Machine Readable)</button>
-                            <button onClick={() => handleExport('text')}>Download TXT (Summary Report)</button>
-                        </div>
-                    )}
-                </div>
+                <button
+                    className={`btn-export ${exporting ? 'success' : ''}`}
+                    onClick={handleExport}
+                    disabled={isExportDisabled}
+                    title={isExportDisabled ? "No data available for this week" : "Download PDF Report"}
+                >
+                    <span>{exporting ? '✓ PDF Downloaded' : '📄 Export Week as PDF'}</span>
+                </button>
             </div>
 
             {/* Streak Statistics */}
