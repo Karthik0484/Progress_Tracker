@@ -1,15 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { loadData, saveData, getTodayKey, getDayName } from '../utils/storage';
 import { TIMETABLE } from '../data/timetable';
+import { validateData, createDailySnapshot, getAvailableSnapshots, restoreFromSnapshot } from '../utils/dataIntegrity';
 
 export const useTracker = () => {
     const [data, setData] = useState(loadData());
     const [todayKey, setTodayKey] = useState(getTodayKey());
+    const [corruptionErrors, setCorruptionErrors] = useState([]);
+
+    // Data Integrity & Snapshots
+    useEffect(() => {
+        const errors = validateData(data);
+        if (errors.length > 0) {
+            setCorruptionErrors(errors);
+        } else {
+            // Only create snapshot if data is currently valid
+            createDailySnapshot(data);
+        }
+    }, [todayKey]); // Re-check/snapshot if the day changes
 
     // Sync to storage
     useEffect(() => {
-        saveData(data);
-    }, [data]);
+        // Only save if no corruption was detected initially to prevent overwriting with bad data
+        // Or should we always save user changes? 
+        // User said: "If validation fails: Flag data as corrupted, Do NOT auto-fix silently"
+        // If we let them keep usage, we might be saving corrupted data.
+        // But if they have corrupted data, we show restore.
+        if (corruptionErrors.length === 0) {
+            saveData(data);
+        }
+    }, [data, corruptionErrors]);
 
     // Keep todayKey updated
     useEffect(() => {
@@ -201,6 +221,18 @@ export const useTracker = () => {
         };
     };
 
+    const restoreLastSnapshot = useCallback(() => {
+        const snapshots = getAvailableSnapshots();
+        if (snapshots.length > 0) {
+            const success = restoreFromSnapshot(snapshots[0].key);
+            if (success) {
+                window.location.reload(); // Reload app as requested
+            }
+            return success;
+        }
+        return false;
+    }, []);
+
     return {
         data,
         todayKey,
@@ -211,6 +243,9 @@ export const useTracker = () => {
         saveReview,
         getDayStats,
         updateSkipReason,
-        updateOverriddenSubject
+        updateOverriddenSubject,
+        corruptionErrors,
+        restoreLastSnapshot,
+        availableSnapshots: getAvailableSnapshots()
     };
 };

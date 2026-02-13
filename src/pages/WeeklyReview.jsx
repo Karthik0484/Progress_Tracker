@@ -3,9 +3,17 @@ import Modal from '../components/Modal';
 import { formatTimeRange } from '../utils/format';
 import { prepareWeeklyData, exportToPDF } from '../utils/exportUtils';
 
-const WeeklyReview = ({ data, getDayStats, todayKey }) => {
+const WeeklyReview = ({ data, getDayStats, todayKey, corruptionErrors = [], restoreLastSnapshot, availableSnapshots = [] }) => {
     const [selectedDate, setSelectedDate] = useState(null);
     const [exporting, setExporting] = useState(false);
+    const [showDataTools, setShowDataTools] = useState(corruptionErrors.length > 0);
+
+    const handleRestore = () => {
+        const msg = "This will restore your last saved state and overwrite current data. Are you sure?";
+        if (window.confirm(msg)) {
+            restoreLastSnapshot();
+        }
+    };
 
     // Filter available years from data
     const availableYears = useMemo(() => {
@@ -276,6 +284,52 @@ const WeeklyReview = ({ data, getDayStats, todayKey }) => {
                         ))}
                     </div>
                 </div>
+            </div>
+
+            {/* Data Integrity / Restore Section (Subtle) */}
+            <div className={`data-tools-section ${corruptionErrors.length > 0 ? 'critical' : ''}`}>
+                <div
+                    className="data-tools-toggle"
+                    onClick={() => setShowDataTools(!showDataTools)}
+                >
+                    {corruptionErrors.length > 0 ? '⚠️ Data Integrity Issue Detected' : '⚙️ Data Tools'}
+                </div>
+
+                {showDataTools && (
+                    <div className="data-tools-content">
+                        {corruptionErrors.length > 0 && (
+                            <div className="corruption-warning">
+                                <strong>Warning:</strong> We detected potential data inconsistencies in your local storage.
+                                <ul style={{ fontSize: '0.8rem', marginTop: '0.5rem', listStyle: 'none', padding: 0 }}>
+                                    {corruptionErrors.slice(0, 2).map((err, i) => (
+                                        <li key={i}>• {err}</li>
+                                    ))}
+                                    {corruptionErrors.length > 2 && <li>• and {corruptionErrors.length - 2} more...</li>}
+                                </ul>
+                            </div>
+                        )}
+
+                        <div className="restore-actions">
+                            {availableSnapshots.length > 0 ? (
+                                <>
+                                    <p style={{ fontSize: '0.85rem', marginBottom: '0.8rem' }}>
+                                        Last Snapshot: <strong>{availableSnapshots[0].date}</strong>
+                                    </p>
+                                    <button
+                                        className="btn-restore"
+                                        onClick={handleRestore}
+                                    >
+                                        Restore Last Good State
+                                    </button>
+                                </>
+                            ) : (
+                                <p style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>
+                                    No snapshots available yet. A snapshot will be created automatically tomorrow.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <Modal isOpen={!!selectedDate} onClose={() => setSelectedDate(null)} title="Performance Details">
@@ -561,8 +615,80 @@ const WeeklyReview = ({ data, getDayStats, todayKey }) => {
                     background: var(--bg);
                     color: var(--primary);
                 }
+
+                .data-tools-section {
+                    margin: 3rem auto 2rem;
+                    max-width: 600px;
+                    padding: 1rem;
+                    border-radius: 12px;
+                    border: 1px dashed var(--border);
+                    text-align: center;
+                }
+
+                .data-tools-section.critical {
+                    border: 1px solid var(--danger);
+                    background: rgba(255, 0, 0, 0.05);
+                }
+
+                .data-tools-toggle {
+                    font-size: 0.8rem;
+                    color: var(--secondary);
+                    cursor: pointer;
+                    display: inline-block;
+                    padding: 0.5rem 1rem;
+                    border-radius: 20px;
+                    transition: all 0.2s;
+                }
+
+                .data-tools-toggle:hover {
+                    background: var(--bg);
+                    color: var(--primary);
+                }
+
+                .data-tools-content {
+                    margin-top: 1.5rem;
+                    padding-top: 1.5rem;
+                    border-top: 1px solid var(--border);
+                    animation: fadeIn 0.3s ease;
+                }
+
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+
+                .corruption-warning {
+                    color: var(--danger);
+                    font-size: 0.9rem;
+                    margin-bottom: 1.5rem;
+                    text-align: left;
+                    background: white;
+                    padding: 1rem;
+                    border-radius: 8px;
+                    border-left: 4px solid var(--danger);
+                }
+                .dark .corruption-warning {
+                    background: #1a1a1a;
+                }
+
+                .btn-restore {
+                    padding: 0.6rem 1.2rem;
+                    background: var(--danger);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+
+                .btn-restore:hover {
+                    opacity: 0.9;
+                    transform: scale(1.02);
+                }
             `}</style>
-        </div>
+        </div >
     );
 };
 

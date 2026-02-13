@@ -19,7 +19,10 @@ function App() {
     saveReview,
     getDayStats,
     updateSkipReason,
-    updateOverriddenSubject
+    updateOverriddenSubject,
+    corruptionErrors,
+    restoreLastSnapshot,
+    availableSnapshots
   } = useTracker();
 
   const [currentPage, setCurrentPage] = useState('today');
@@ -65,7 +68,17 @@ function App() {
           />
         );
       case 'review':
-        return <WeeklyReview data={data} saveReview={saveReview} getDayStats={getDayStats} todayKey={todayKey} />;
+        return (
+          <WeeklyReview
+            data={data}
+            saveReview={saveReview}
+            getDayStats={getDayStats}
+            todayKey={todayKey}
+            corruptionErrors={corruptionErrors}
+            restoreLastSnapshot={restoreLastSnapshot}
+            availableSnapshots={availableSnapshots}
+          />
+        );
       default:
         return null;
     }
