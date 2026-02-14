@@ -24,8 +24,9 @@ const Progress = ({ data, updateWeakAreas, getDayStats, todayKey, onNavigateToTo
             dayData.completedBlocks.forEach(blockIndex => {
                 const block = schedule[blockIndex];
                 if (block) {
-                    const s = block.start.split(':').map(Number);
-                    const e = block.end.split(':').map(Number);
+                    const time = dayData.overriddenTimes?.[blockIndex] || { start: block.start, end: block.end };
+                    const s = time.start.split(':').map(Number);
+                    const e = time.end.split(':').map(Number);
                     const duration = (e[0] + e[1] / 60) - (s[0] + s[1] / 60);
 
                     let subject = dayData.overriddenSubjects?.[blockIndex] || block.subject;
@@ -134,11 +135,14 @@ const Progress = ({ data, updateWeakAreas, getDayStats, todayKey, onNavigateToTo
                                             {isDone ? '✓' : '•'}
                                         </span>
                                         <span style={{ width: '130px', fontSize: '0.9rem', color: 'var(--secondary)' }}>
-                                            {formatTimeRange(block.start, block.end)}
+                                            {formatTimeRange(
+                                                dayData.overriddenTimes?.[idx]?.start || block.start,
+                                                dayData.overriddenTimes?.[idx]?.end || block.end
+                                            )}
                                         </span>
                                         <span style={{ fontWeight: isDone ? 'normal' : '500', textDecoration: isDone ? 'line-through' : 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                             {displaySubject}
-                                            {dayData.overriddenSubjects?.[idx] && (
+                                            {(dayData.overriddenSubjects?.[idx] || dayData.overriddenTimes?.[idx]) && (
                                                 <span style={{ fontSize: '0.6rem', color: 'var(--primary)', opacity: 0.8 }}> (Edited)</span>
                                             )}
                                         </span>

@@ -1,17 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatTimeRange } from '../utils/format';
 
-const TimeBlock = ({ start, end, subject, overriddenSubject, onUpdateSubject, completed, onToggle, readOnly, skipReason, onUpdateReason, isToday }) => {
+const TimeBlock = ({ start, end, subject, overriddenSubject, onUpdateSubject, overriddenTime, onUpdateTime, completed, onToggle, readOnly, skipReason, onUpdateReason, isToday }) => {
     const [isEditingReason, setIsEditingReason] = useState(false);
     const [reasonText, setReasonText] = useState(skipReason || '');
     const [isEditingSubject, setIsEditingSubject] = useState(false);
     const [subjectText, setSubjectText] = useState(overriddenSubject || subject);
 
+    const [isEditingTime, setIsEditingTime] = useState(false);
+    const [startTime, setStartTime] = useState(overriddenTime?.start || start);
+    const [endTime, setEndTime] = useState(overriddenTime?.end || end);
+    const [timeError, setTimeError] = useState('');
+
+    const displayStart = overriddenTime?.start || start;
+    const displayEnd = overriddenTime?.end || end;
+
     // Sync with props when they change
-    React.useEffect(() => {
+    useEffect(() => {
         setSubjectText(overriddenSubject || subject);
         setReasonText(skipReason || '');
-    }, [overriddenSubject, subject, skipReason]);
+        setStartTime(overriddenTime?.start || start);
+        setEndTime(overriddenTime?.end || end);
+        setTimeError('');
+    }, [overriddenSubject, subject, skipReason, overriddenTime, start, end]);
 
     const handleReasonClick = (e) => {
         e.stopPropagation();
@@ -48,13 +59,50 @@ const TimeBlock = ({ start, end, subject, overriddenSubject, onUpdateSubject, co
         }
     };
 
+    const handleTimeClick = (e) => {
+        if (!isToday || readOnly) return;
+        e.stopPropagation();
+        setIsEditingTime(true);
+    };
+
+    const submitTimeUpdate = (e) => {
+        e.stopPropagation();
+        if (startTime === displayStart && endTime === displayEnd) {
+            setIsEditingTime(false);
+            return;
+        }
+
+        const result = onUpdateTime(startTime, endTime);
+        if (result && result.error) {
+            setTimeError(result.error);
+        } else {
+            setTimeError('');
+            setIsEditingTime(false);
+        }
+    };
+
     const handleInputClick = (e) => {
         e.stopPropagation();
     };
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e, type) => {
         if (e.key === 'Enter') {
-            e.target.blur();
+            if (type === 'time') {
+                submitTimeUpdate(e);
+            } else {
+                e.target.blur();
+            }
+        }
+        if (e.key === 'Escape') {
+            if (type === 'time') {
+                setIsEditingTime(false);
+                setStartTime(displayStart);
+                setEndTime(displayEnd);
+                setTimeError('');
+            } else if (type === 'subject') {
+                setIsEditingSubject(false);
+                setSubjectText(overriddenSubject || subject);
+            }
         }
     };
 
@@ -62,11 +110,45 @@ const TimeBlock = ({ start, end, subject, overriddenSubject, onUpdateSubject, co
 
     return (
         <div className={`time-block ${completed ? 'completed' : 'todo'}`}>
-            <div className="time-block-main">
-                <div className="block-time">
-                    {formatTimeRange(start, end)}
+            <div className="time-block-zones">
+                {/* ZONE 1: TIME */}
+                <div className="zone-time">
+                    {isEditingTime ? (
+                        <div className="time-edit-wrapper" onClick={handleInputClick}>
+                            <div className="time-inputs-row">
+                                <input
+                                    type="time"
+                                    value={startTime}
+                                    onChange={(e) => setStartTime(e.target.value)}
+                                    className="time-input-field"
+                                    onKeyDown={(e) => handleKeyDown(e, 'time')}
+                                    autoFocus
+                                />
+                                <span className="time-sep">–</span>
+                                <input
+                                    type="time"
+                                    value={endTime}
+                                    onChange={(e) => setEndTime(e.target.value)}
+                                    className="time-input-field"
+                                    onKeyDown={(e) => handleKeyDown(e, 'time')}
+                                />
+                                <div className="time-edit-buttons">
+                                    <button className="time-btn save" onClick={submitTimeUpdate} title="Save">✓</button>
+                                    <button className="time-btn cancel" onClick={(e) => { e.stopPropagation(); setIsEditingTime(false); setTimeError(''); }} title="Cancel">×</button>
+                                </div>
+                            </div>
+                            {timeError && <div className="time-error-hint">{timeError}</div>}
+                        </div>
+                    ) : (
+                        <div className="time-display" onClick={handleTimeClick} style={{ cursor: (isToday && !readOnly) ? 'pointer' : 'default' }}>
+                            <span className="time-range-text">{formatTimeRange(displayStart, displayEnd)}</span>
+                            {overriddenTime && <span className="badge-edited">Edited</span>}
+                        </div>
+                    )}
                 </div>
-                <div className="block-subject" onClick={handleSubjectClick} style={{ cursor: (isToday && !readOnly) ? 'text' : 'default' }}>
+
+                {/* ZONE 2: SUBJECT */}
+                <div className="zone-subject" onClick={handleSubjectClick} style={{ cursor: (isToday && !readOnly) ? 'text' : 'default' }}>
                     {isEditingSubject ? (
                         <input
                             type="text"
@@ -74,125 +156,77 @@ const TimeBlock = ({ start, end, subject, overriddenSubject, onUpdateSubject, co
                             onChange={handleSubjectChange}
                             onBlur={handleSubjectBlur}
                             onClick={handleInputClick}
-                            onKeyDown={handleKeyDown}
+                            onKeyDown={(e) => handleKeyDown(e, 'subject')}
                             autoFocus
-                            className="time-block-subject-input"
-                            style={{
-                                width: '100%',
-                                padding: '0.2rem 0.4rem',
-                                fontSize: 'inherit',
-                                fontWeight: 'inherit',
-                                border: '1px solid var(--primary)',
-                                borderRadius: '4px',
-                                background: 'var(--card-bg)',
-                                color: 'var(--text)'
-                            }}
+                            className="subject-edit-input"
                         />
                     ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            {displaySubject}
-                            {overriddenSubject && (
-                                <span style={{
-                                    fontSize: '0.65rem',
-                                    background: 'var(--primary)',
-                                    color: 'white',
-                                    padding: '1px 4px',
-                                    borderRadius: '3px',
-                                    fontWeight: 'bold',
-                                    textTransform: 'uppercase'
-                                }}>
-                                    Edited
-                                </span>
-                            )}
+                        <div className="subject-display">
+                            <span className="subject-name-text">{displaySubject}</span>
+                            {overriddenSubject && <span className="badge-edited">Edited</span>}
                         </div>
                     )}
                 </div>
-                {!readOnly && (
-                    <div
-                        className={`checkbox-custom ${skipReason ? 'disabled' : ''}`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (!skipReason) onToggle();
-                        }}
-                        style={{
-                            cursor: skipReason ? 'not-allowed' : 'pointer',
-                            opacity: skipReason ? 0.3 : 1
-                        }}
-                        title={skipReason ? "Remove skip reason to mark as completed" : ""}
-                    >
-                        {completed && <span>✓</span>}
-                    </div>
-                )}
-            </div>
 
-            {/* Skip Reason Section */}
-            {!completed && (
-                <div className="time-block-skip-reason-section" style={{ marginTop: '0.2rem', paddingLeft: '0.5rem', fontSize: '0.9rem' }}>
-                    {!readOnly && (
-                        <>
-                            {isEditingReason ? (
-                                <input
-                                    type="text"
-                                    value={reasonText}
-                                    onChange={handleReasonChange}
-                                    onBlur={handleReasonBlur}
-                                    onClick={handleInputClick}
-                                    onKeyDown={handleKeyDown}
-                                    placeholder="Reason for skipping..."
-                                    autoFocus
-                                    className="time-block-reason-input"
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.4rem',
-                                        fontSize: '0.9rem',
-                                        border: '1px solid var(--border)',
-                                        borderRadius: '4px',
-                                        marginBottom: 0,
-                                        background: 'var(--card-bg)',
-                                        color: 'var(--text)'
-                                    }}
-                                />
-                            ) : (
-                                <div
-                                    onClick={handleReasonClick}
-                                    className={`time-block-reason-display ${skipReason ? 'has-reason' : 'no-reason'}`}
-                                    style={{
-                                        color: skipReason ? '#EF4444' : '#94A3B8',
-                                        cursor: 'text',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        gap: '0.5rem'
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {/* ZONE 3: STATUS */}
+                <div className="zone-status">
+                    <div className="status-container">
+                        {!completed && !readOnly && (
+                            <div className="skip-reason-wrapper">
+                                {isEditingReason ? (
+                                    <input
+                                        type="text"
+                                        value={reasonText}
+                                        onChange={handleReasonChange}
+                                        onBlur={handleReasonBlur}
+                                        onClick={handleInputClick}
+                                        onKeyDown={handleKeyDown}
+                                        placeholder="Add skip reason..."
+                                        autoFocus
+                                        className="skip-reason-input"
+                                    />
+                                ) : (
+                                    <div
+                                        onClick={handleReasonClick}
+                                        className={`skip-reason-display ${skipReason ? 'has-value' : 'placeholder'}`}
+                                    >
                                         {skipReason ? (
-                                            <span>⚠ {skipReason}</span>
+                                            <span className="reason-text">⚠ {skipReason}</span>
                                         ) : (
-                                            <span className="time-block-reason-placeholder" style={{ fontSize: '0.85rem', textDecoration: 'underline', opacity: 0.7 }}>
-                                                Select "Why skipped?"
-                                            </span>
+                                            <span className="reason-placeholder">Why skipped?</span>
                                         )}
                                     </div>
-                                    {skipReason && (
-                                        <span style={{ fontSize: '0.75rem', opacity: 0.6, fontStyle: 'italic' }}>
-                                            (Uncheck completion disabled)
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-                        </>
-                    )}
+                                )}
+                            </div>
+                        )}
 
-                    {readOnly && skipReason && (
-                        <div style={{ color: '#EF4444', fontStyle: 'italic' }}>
-                            ⚠ {skipReason}
-                        </div>
-                    )}
+                        {readOnly && skipReason && !completed && (
+                            <div className="skip-reason-readonly">
+                                ⚠ {skipReason}
+                            </div>
+                        )}
+
+                        {!readOnly && (
+                            <div
+                                className={`status-checkbox ${skipReason ? 'is-disabled' : ''}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!skipReason) onToggle();
+                                }}
+                                title={skipReason ? "Remove skip reason to complete" : "Toggle completion"}
+                            >
+                                {completed && <span className="check-icon">✓</span>}
+                            </div>
+                        )}
+
+                        {readOnly && completed && (
+                            <div className="status-checkmark">✓</div>
+                        )}
+                    </div>
                 </div>
-            )}
+            </div>
             {skipReason && !readOnly && !completed && (
-                <div style={{ paddingLeft: '0.5rem', fontSize: '0.7rem', color: 'var(--secondary)', marginTop: '2px', opacity: 0.7 }}>
+                <div className="skip-hint">
                     Remove reason to enable completion check
                 </div>
             )}

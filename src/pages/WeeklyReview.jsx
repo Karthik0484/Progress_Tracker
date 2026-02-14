@@ -153,10 +153,15 @@ const WeeklyReview = ({ data, getDayStats, todayKey, corruptionErrors = [], rest
                                 <div key={idx} style={{ padding: '0.8rem', borderBottom: '1px solid var(--border)', opacity: isDone ? 0.6 : 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center' }}>
                                         <span style={{ width: '20px', color: isDone ? 'var(--success)' : 'var(--danger)' }}>{isDone ? '✓' : '•'}</span>
-                                        <span style={{ width: '130px', fontSize: '0.85rem' }}>{formatTimeRange(block.start, block.end)}</span>
+                                        <span style={{ width: '130px', fontSize: '0.85rem' }}>
+                                            {formatTimeRange(
+                                                dayData.overriddenTimes?.[idx]?.start || block.start,
+                                                dayData.overriddenTimes?.[idx]?.end || block.end
+                                            )}
+                                        </span>
                                         <span style={{ fontWeight: 500 }}>
                                             {displaySubject}
-                                            {dayData.overriddenSubjects?.[idx] && (
+                                            {(dayData.overriddenSubjects?.[idx] || dayData.overriddenTimes?.[idx]) && (
                                                 <span style={{ fontSize: '0.65rem', color: 'var(--primary)', marginLeft: '0.5rem', fontWeight: 'normal' }}>(Edited)</span>
                                             )}
                                         </span>

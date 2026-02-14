@@ -20,6 +20,7 @@ function App() {
     getDayStats,
     updateSkipReason,
     updateOverriddenSubject,
+    updateOverriddenTime,
     corruptionErrors,
     restoreLastSnapshot,
     availableSnapshots
@@ -47,12 +48,13 @@ function App() {
         return (
           <Today
             todayKey={todayKey}
-            dailyData={data.dailyProgress[todayKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {} }}
+            dailyData={data.dailyProgress[todayKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {} }}
             toggleBlock={toggleBlock}
             updateNotes={updateNotes}
             toggleLeetCode={toggleLeetCode}
             updateSkipReason={updateSkipReason}
             updateOverriddenSubject={updateOverriddenSubject}
+            updateOverriddenTime={updateOverriddenTime}
           />
         );
       case 'timetable':

@@ -3,7 +3,7 @@ import TimeBlock from '../components/TimeBlock';
 import { getDayName } from '../utils/storage';
 import { TIMETABLE } from '../data/timetable';
 
-const Today = ({ todayKey, dailyData, toggleBlock, updateNotes, toggleLeetCode, updateSkipReason, updateOverriddenSubject }) => {
+const Today = ({ todayKey, dailyData, toggleBlock, updateNotes, toggleLeetCode, updateSkipReason, updateOverriddenSubject, updateOverriddenTime }) => {
     const dayName = getDayName(todayKey);
     const schedule = TIMETABLE[dayName] || [];
 
@@ -13,8 +13,9 @@ const Today = ({ todayKey, dailyData, toggleBlock, updateNotes, toggleLeetCode, 
         let completed = 0;
 
         schedule.forEach((block, index) => {
-            const startParts = block.start.split(':').map(Number);
-            const endParts = block.end.split(':').map(Number);
+            const time = dailyData.overriddenTimes?.[index] || { start: block.start, end: block.end };
+            const startParts = time.start.split(':').map(Number);
+            const endParts = time.end.split(':').map(Number);
             const startH = startParts[0] + startParts[1] / 60;
             const endH = endParts[0] + endParts[1] / 60;
             const duration = endH - startH;
@@ -30,7 +31,7 @@ const Today = ({ todayKey, dailyData, toggleBlock, updateNotes, toggleLeetCode, 
             completed: completed.toFixed(1),
             percent: total > 0 ? (completed / total) * 100 : 0
         };
-    }, [schedule, dailyData.completedBlocks]);
+    }, [schedule, dailyData.completedBlocks, dailyData.overriddenTimes]);
 
     if (schedule.length === 0) {
         return (
@@ -72,6 +73,8 @@ const Today = ({ todayKey, dailyData, toggleBlock, updateNotes, toggleLeetCode, 
                     {...block}
                     overriddenSubject={dailyData.overriddenSubjects?.[index]}
                     onUpdateSubject={(newSub) => updateOverriddenSubject(todayKey, index, newSub)}
+                    overriddenTime={dailyData.overriddenTimes?.[index]}
+                    onUpdateTime={(newStart, newEnd) => updateOverriddenTime(todayKey, index, newStart, newEnd)}
                     completed={dailyData.completedBlocks.includes(index)}
                     onToggle={() => toggleBlock(todayKey, index)}
                     skipReason={dailyData.skippedReasons?.[index]}

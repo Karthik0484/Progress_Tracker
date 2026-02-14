@@ -54,9 +54,10 @@ export const prepareWeeklyData = (data, getDayStats, referenceDate, streaks) => 
                 const isCompleted = stats.dayData.completedBlocks.includes(idx);
                 const skipReason = stats.dayData.skippedReasons?.[idx];
                 const subject = stats.dayData.overriddenSubjects?.[idx] || block.subject;
+                const time = stats.dayData.overriddenTimes?.[idx] || { start: block.start, end: block.end };
 
                 const blockEntry = {
-                    time: formatTimeRange(block.start, block.end),
+                    time: formatTimeRange(time.start, time.end),
                     subject: subject,
                     status: isCompleted ? 'Completed' : (skipReason ? 'Skipped' : 'Pending'),
                 };
