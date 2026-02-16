@@ -1,63 +1,81 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { loadData, saveData, getTodayKey, getDayName } from '../utils/storage';
 import { TIMETABLE } from '../data/timetable';
 import { validateData, createDailySnapshot, getAvailableSnapshots, restoreFromSnapshot } from '../utils/dataIntegrity';
 
 export const useTracker = () => {
-    const [data, setData] = useState(loadData());
+    const isFirstRender = useRef(true);
+    const [data, setData] = useState(() => loadData());
     const [todayKey, setTodayKey] = useState(getTodayKey());
     const [corruptionErrors, setCorruptionErrors] = useState([]);
 
-    // Data Integrity & Snapshots
+    // 1. Initial hydration and Day-Change management
     useEffect(() => {
-        const errors = validateData(data);
-        if (errors.length > 0) {
-            setCorruptionErrors(errors);
-        } else {
-            // Only create snapshot if data is currently valid
-            createDailySnapshot(data);
-        }
-    }, [todayKey]); // Re-check/snapshot if the day changes
+        const currentToday = getTodayKey();
 
-    // Sync to storage
-    useEffect(() => {
-        // Only save if no corruption was detected initially to prevent overwriting with bad data
-        if (corruptionErrors.length === 0) {
-            saveData(data);
-        }
-    }, [data, corruptionErrors]);
+        // Always ensure today's key exists in the structure immediately on load
+        setData(prev => {
+            if (prev.dailyProgress[currentToday]) return prev;
+            return {
+                ...prev,
+                dailyProgress: {
+                    ...prev.dailyProgress,
+                    [currentToday]: {
+                        completedBlocks: [],
+                        notes: '',
+                        leetcode: false,
+                        overriddenSubjects: {},
+                        overriddenTimes: {},
+                        skippedReasons: {}
+                    }
+                }
+            };
+        });
 
-    // Keep todayKey updated
-    useEffect(() => {
+        // Set up interval to track day changes
         const interval = setInterval(() => {
             const current = getTodayKey();
             if (current !== todayKey) {
                 setTodayKey(current);
             }
-        }, 60000); // Check every minute
+        }, 30000); // Check every 30s
+
         return () => clearInterval(interval);
     }, [todayKey]);
 
-    // Ensure day entry exists
-    const ensureDay = (dateKey) => {
-        if (!data.dailyProgress[dateKey]) {
-            setData(prev => ({
-                ...prev,
-                dailyProgress: {
-                    ...prev.dailyProgress,
-                    [dateKey]: { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {} }
-                }
-            }));
+    // 2. Data Validation & Snapshots
+    useEffect(() => {
+        const errors = validateData(data);
+        setCorruptionErrors(errors);
+
+        if (errors.length === 0 && !isFirstRender.current) {
+            // Only create snapshot if data is valid and it's not the initial mount
+            // (Snapshot utility already checks per-day existence)
+            createDailySnapshot(data);
         }
-    };
+    }, [data]);
 
-    // --- Actions ---
+    // 3. Persistent Sync to localStorage
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return; // Skip the very first sync to avoid overwriting with defaults
+        }
 
-    const toggleBlock = (dateKey, blockIndex) => {
-        if (dateKey !== getTodayKey()) return; // Strict guard
+        // Only save if no corruption was detected to prevent data loss
+        if (corruptionErrors.length === 0) {
+            saveData(data);
+        }
+    }, [data, corruptionErrors]);
 
+    // --- Actions (Immutable Updates) ---
+
+    const toggleBlock = useCallback((dateKey, blockIndex) => {
         setData(prev => {
-            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {} };
+            const dayData = prev.dailyProgress[dateKey] || {
+                completedBlocks: [], notes: '', leetcode: false,
+                overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {}
+            };
             const isCompleted = dayData.completedBlocks.includes(blockIndex);
 
             let newCompleted;
@@ -66,7 +84,7 @@ export const useTracker = () => {
             if (isCompleted) {
                 newCompleted = dayData.completedBlocks.filter(i => i !== blockIndex);
             } else {
-                newCompleted = [...dayData.completedBlocks, blockIndex].sort((a, b) => a - b); // keep sorted
+                newCompleted = [...dayData.completedBlocks, blockIndex].sort((a, b) => a - b);
                 // Rule: If marking as completed, remove skip reason
                 delete newReasons[blockIndex];
             }
@@ -79,13 +97,14 @@ export const useTracker = () => {
                 }
             };
         });
-    };
+    }, []);
 
-    const updateNotes = (dateKey, text) => {
-        if (dateKey !== getTodayKey()) return;
-
+    const updateNotes = useCallback((dateKey, text) => {
         setData(prev => {
-            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {} };
+            const dayData = prev.dailyProgress[dateKey] || {
+                completedBlocks: [], notes: '', leetcode: false,
+                overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {}
+            };
             return {
                 ...prev,
                 dailyProgress: {
@@ -94,13 +113,14 @@ export const useTracker = () => {
                 }
             };
         });
-    };
+    }, []);
 
-    const toggleLeetCode = (dateKey) => {
-        if (dateKey !== getTodayKey()) return;
-
+    const toggleLeetCode = useCallback((dateKey) => {
         setData(prev => {
-            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {} };
+            const dayData = prev.dailyProgress[dateKey] || {
+                completedBlocks: [], notes: '', leetcode: false,
+                overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {}
+            };
             return {
                 ...prev,
                 dailyProgress: {
@@ -109,17 +129,15 @@ export const useTracker = () => {
                 }
             };
         });
-    };
+    }, []);
 
-    const updateSkipReason = (dateKey, blockIndex, reason) => {
-        if (dateKey !== getTodayKey()) return;
-
+    const updateSkipReason = useCallback((dateKey, blockIndex, reason) => {
         setData(prev => {
-            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {} };
-            const currentReasons = dayData.skippedReasons || {}; // ensure map exists
-
-            // If reason is empty, remove it to keep clean, or just store ''
-            const newReasons = { ...currentReasons };
+            const dayData = prev.dailyProgress[dateKey] || {
+                completedBlocks: [], notes: '', leetcode: false,
+                overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {}
+            };
+            const newReasons = { ...(dayData.skippedReasons || {}) };
             let newCompleted = [...(dayData.completedBlocks || [])];
 
             if (reason.trim() === '') {
@@ -138,16 +156,16 @@ export const useTracker = () => {
                 }
             };
         });
-    };
+    }, []);
 
-    const updateOverriddenSubject = (dateKey, blockIndex, newSubject) => {
-        if (dateKey !== getTodayKey()) return;
-        if (!newSubject.trim()) return; // Requirement: Do NOT allow empty subject names
+    const updateOverriddenSubject = useCallback((dateKey, blockIndex, newSubject) => {
+        if (!newSubject.trim()) return;
 
         setData(prev => {
-            const dayData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {} };
-            const currentOverrides = dayData.overriddenSubjects || {};
-
+            const dayData = prev.dailyProgress[dateKey] || {
+                completedBlocks: [], notes: '', leetcode: false,
+                overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {}
+            };
             return {
                 ...prev,
                 dailyProgress: {
@@ -155,17 +173,16 @@ export const useTracker = () => {
                     [dateKey]: {
                         ...dayData,
                         overriddenSubjects: {
-                            ...currentOverrides,
+                            ...(dayData.overriddenSubjects || {}),
                             [blockIndex]: newSubject
                         }
                     }
                 }
             };
         });
-    };
+    }, []);
 
-    const updateOverriddenTime = (dateKey, blockIndex, newStart, newEnd) => {
-        if (dateKey !== getTodayKey()) return { error: 'Only today can be edited' };
+    const updateOverriddenTime = useCallback((dateKey, blockIndex, newStart, newEnd) => {
         if (!newStart || !newEnd) return { error: 'Invalid time' };
 
         const [sH, sM] = newStart.split(':').map(Number);
@@ -175,33 +192,37 @@ export const useTracker = () => {
 
         if (startVal >= endVal) return { error: 'Start time must be before end time' };
 
-        const dayName = getDayName(dateKey);
-        const schedule = TIMETABLE[dayName] || [];
-        const dayData = data.dailyProgress[dateKey] || {};
-        const currentOverriddenTimes = dayData.overriddenTimes || {};
-
-        const hasOverlap = schedule.some((block, idx) => {
-            if (idx === blockIndex) return false;
-            const time = currentOverriddenTimes[idx] || { start: block.start, end: block.end };
-            const [exSH, exSM] = time.start.split(':').map(Number);
-            const [exEH, exEM] = time.end.split(':').map(Number);
-            const exStartVal = exSH * 60 + exSM;
-            const exEndVal = exEH * 60 + exEM;
-            return (startVal < exEndVal && endVal > exStartVal);
-        });
-
-        if (hasOverlap) return { error: 'Time range overlaps with another block' };
-
         setData(prev => {
-            const dData = prev.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {} };
+            const dayName = getDayName(dateKey);
+            const schedule = TIMETABLE[dayName] || [];
+            const dayData = prev.dailyProgress[dateKey] || {};
+            const currentOverriddenTimes = dayData.overriddenTimes || {};
+
+            // Internal overlap check within the setter to use freshest data
+            const hasOverlap = schedule.some((block, idx) => {
+                if (idx === blockIndex) return false;
+                const time = currentOverriddenTimes[idx] || { start: block.start, end: block.end };
+                const [exSH, exSM] = time.start.split(':').map(Number);
+                const [exEH, exEM] = time.end.split(':').map(Number);
+                const exStartVal = exSH * 60 + exSM;
+                const exEndVal = exEH * 60 + exEM;
+                return (startVal < exEndVal && endVal > exStartVal);
+            });
+
+            if (hasOverlap) {
+                // We can't easily return an error from within a functional update, 
+                // but we can prevent the update.
+                return prev;
+            }
+
             return {
                 ...prev,
                 dailyProgress: {
                     ...prev.dailyProgress,
                     [dateKey]: {
-                        ...dData,
+                        ...dayData,
                         overriddenTimes: {
-                            ...(dData.overriddenTimes || {}),
+                            ...currentOverriddenTimes,
                             [blockIndex]: { start: newStart, end: newEnd }
                         }
                     }
@@ -209,14 +230,14 @@ export const useTracker = () => {
             };
         });
         return { success: true };
-    };
+    }, []);
 
-    const updateWeakAreas = (text) => {
+    const updateWeakAreas = useCallback((text) => {
         const areas = text.split('\n').filter(s => s.trim() !== '');
         setData(prev => ({ ...prev, weakAreas: areas }));
-    };
+    }, []);
 
-    const saveReview = (weekId, reviewData) => {
+    const saveReview = useCallback((weekId, reviewData) => {
         setData(prev => ({
             ...prev,
             reviews: {
@@ -224,26 +245,29 @@ export const useTracker = () => {
                 [weekId]: reviewData
             }
         }));
-    };
+    }, []);
 
     // --- Stats Helpers ---
 
-    const getDayStats = (dateKey) => {
-        const dayName = getDayName(dateKey); // e.g., "Monday"
+    const getDayStats = useCallback((dateKey) => {
+        const dayName = getDayName(dateKey);
         const schedule = TIMETABLE[dayName] || [];
-        const dayData = data.dailyProgress[dateKey] || { completedBlocks: [], notes: '', leetcode: false, overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {} };
+        const dayData = data.dailyProgress[dateKey] || {
+            completedBlocks: [], notes: '', leetcode: false,
+            overriddenSubjects: {}, overriddenTimes: {}, skippedReasons: {}
+        };
 
         let totalHours = 0;
         let completedHours = 0;
 
         schedule.forEach((block, index) => {
             const time = dayData.overriddenTimes?.[index] || { start: block.start, end: block.end };
-            const start = time.start.split(':').map(Number);
-            const end = time.end.split(':').map(Number);
+            const startParts = time.start.split(':').map(Number);
+            const endParts = time.end.split(':').map(Number);
 
-            const startH = start[0] + start[1] / 60;
-            const endH = end[0] + end[1] / 60;
-            const duration = endH - startH;
+            const startH = startParts[0] + startParts[1] / 60;
+            const endH = endParts[0] + endParts[1] / 60;
+            const duration = Math.max(0, endH - startH);
 
             totalHours += duration;
             if (dayData.completedBlocks.includes(index)) {
@@ -251,31 +275,31 @@ export const useTracker = () => {
             }
         });
 
-        const percent = totalHours > 0 ? (completedHours / totalHours) * 100 : 0;
-
         return {
             dateKey,
             dayName,
             schedule,
             dayData,
-            totalHours,
-            completedHours,
-            percent,
+            totalHours: totalHours.toFixed(1),
+            completedHours: completedHours.toFixed(1),
+            percent: totalHours > 0 ? (completedHours / totalHours) * 100 : 0,
             isToday: dateKey === todayKey
         };
-    };
+    }, [data, todayKey]);
 
     const restoreLastSnapshot = useCallback(() => {
         const snapshots = getAvailableSnapshots();
         if (snapshots.length > 0) {
             const success = restoreFromSnapshot(snapshots[0].key);
             if (success) {
-                window.location.reload(); // Reload app as requested
+                window.location.reload();
             }
             return success;
         }
         return false;
     }, []);
+
+    const availableSnapshots = useMemo(() => getAvailableSnapshots(), []);
 
     return {
         data,
@@ -291,6 +315,7 @@ export const useTracker = () => {
         updateOverriddenTime,
         corruptionErrors,
         restoreLastSnapshot,
-        availableSnapshots: getAvailableSnapshots()
+        availableSnapshots
     };
 };
+

@@ -41,7 +41,10 @@ export const prepareWeeklyData = (data, getDayStats, referenceDate, streaks) => 
     for (let i = 0; i < 7; i++) {
         const current = new Date(monday);
         current.setDate(monday.getDate() + i);
-        const dateKey = current.toISOString().split('T')[0];
+        const year = current.getFullYear();
+        const month = String(current.getMonth() + 1).padStart(2, '0');
+        const day = String(current.getDate()).padStart(2, '0');
+        const dateKey = `${year}-${month}-${day}`;
         const stats = getDayStats(dateKey);
 
         const dayEntry = {

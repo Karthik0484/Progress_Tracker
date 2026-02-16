@@ -43,7 +43,10 @@ const WeeklyReview = ({ data, getDayStats, todayKey, corruptionErrors = [], rest
 
         const iter = new Date(dates[0]);
         while (iter <= lastDate) {
-            const dKey = iter.toISOString().split('T')[0];
+            const year = iter.getFullYear();
+            const month = String(iter.getMonth() + 1).padStart(2, '0');
+            const day = String(iter.getDate()).padStart(2, '0');
+            const dKey = `${year}-${month}-${day}`;
             const stats = getDayStats(dKey);
 
             if (stats.totalHours > 0) {
@@ -74,7 +77,10 @@ const WeeklyReview = ({ data, getDayStats, todayKey, corruptionErrors = [], rest
         const dayList = [];
         const iter = new Date(startDate);
         while (iter <= endDate) {
-            const key = iter.toISOString().split('T')[0];
+            const year = iter.getFullYear();
+            const month = String(iter.getMonth() + 1).padStart(2, '0');
+            const day = String(iter.getDate()).padStart(2, '0');
+            const key = `${year}-${month}-${day}`;
             const dateObj = new Date(iter);
             dayList.push({
                 date: dateObj,
